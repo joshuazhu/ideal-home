@@ -1,5 +1,16 @@
-import { AdvancedMarker, GoogleMapsContext, Map, useMapsLibrary } from '@vis.gl/react-google-maps';
-import { forwardRef, Ref, useContext, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
+/* eslint-disable complexity */
+import {
+  forwardRef,
+  useContext,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef
+} from 'react';
+
+import { GoogleMapsContext, useMapsLibrary } from '@vis.gl/react-google-maps';
+
+import type { Ref } from 'react';
 
 type PolygonEventProps = {
   onClick?: (e: google.maps.MapMouseEvent) => void;
@@ -9,6 +20,7 @@ type PolygonEventProps = {
   onMouseOver?: (e: google.maps.MapMouseEvent) => void;
   onMouseOut?: (e: google.maps.MapMouseEvent) => void;
 };
+
 type PolygonCustomProps = {
   /**
    * this is an encoded string for the path, will be decoded and used as a path
@@ -54,6 +66,8 @@ function usePolygon(props: PolygonProps) {
     polygon.setOptions(polygonOptions);
   }, [polygon, polygonOptions]);
 
+  const map = useContext(GoogleMapsContext)?.map;
+
   // update the path with the encodedPath
   useMemo(() => {
     if (!encodedPaths || !geometryLibrary) return;
@@ -62,11 +76,8 @@ function usePolygon(props: PolygonProps) {
     );
 
     console.log('paths', paths);
-
     polygon.setPaths(paths);
   }, [polygon, encodedPaths, geometryLibrary]);
-
-  const map = useContext(GoogleMapsContext)?.map;
 
   // create polygon instance and add to the map once the map is available
   useEffect(() => {
@@ -112,48 +123,13 @@ function usePolygon(props: PolygonProps) {
   return polygon;
 }
 
+/**
+ * Component to render a polygon on a map
+ */
 export const Polygon = forwardRef((props: PolygonProps, ref: PolygonRef) => {
   const polygon = usePolygon(props);
 
-  useImperativeHandle(ref, () => polygon, []);
+  useImperativeHandle(ref, () => polygon, [props, polygon]);
 
   return null;
 });
-
-export const MapComponent = ({
-  center,
-  polygonPaths
-}: {
-  center: google.maps.LatLngLiteral;
-  polygonPaths: string[];
-}) => {
-
-  //Melbourne coordinates
-  const position = { lat: -37.813505156854625, lng: 144.9642990778334 };
-  return (
-    <Map
-      defaultCenter={position}
-      defaultZoom={10}
-      mapId={process.env.REACT_APP_GOOGLE_MAP_ID}
-      style={{ width: '100%', height: '100vh' }}
-      gestureHandling={'greedy'}
-      disableDefaultUI={true}
-    >
-      <Polygon strokeWeight={1.5} encodedPaths={polygonPaths} />
-      {/* {polygonPath.length > 0 && (
-          <Polygon
-            paths={polygonPath}
-            options={{
-              fillColor: '#FF0000',
-              fillOpacity: 0.35,
-              strokeColor: '#FF0000',
-              strokeOpacity: 0.8,
-              strokeWeight: 2,
-              clickable: false,
-            }}
-          />
-        )} */}
-      <AdvancedMarker position={center || position} />
-    </Map>
-  );
-};

@@ -3,14 +3,17 @@ import { useState } from 'react';
 import { MapComponent } from './components/Map/map.comp';
 import { SearchPanelComponent } from './components/SearchPanel/searchPanel.comp';
 import { APIProvider } from '@vis.gl/react-google-maps';
+import { DEFAULT_POSITION } from './const';
 
 function App() {
-  const [center, setCenter] = useState<google.maps.LatLngLiteral>({
-    lat: -37.813505156854625,
-    lng: 144.9642990778334
-  });
-  const [openStreetMapId, setOpenStreetMapId] = useState<string | null>(null);
+  const [center, setCenter] = useState<google.maps.LatLngLiteral>(DEFAULT_POSITION);
   const [polygonPaths, setPolygonPaths] = useState<string[]>([]);
+  const [searchAddress, setSearchAddress] = useState<string>('');
+  const [properties, setProperties] = useState<{
+    coordinates: [number, number];
+    address: string;
+  }[]>([]);
+
 
   return (
     <APIProvider apiKey={process.env.REACT_APP_GOOGLE_MAPS_API_KEY || ''} libraries={['places']}>
@@ -19,13 +22,16 @@ function App() {
         <div className='search-panel basis-1/4'>
           <SearchPanelComponent
             setCenter={setCenter}
+            polygonPaths={polygonPaths}
             setPolygonPaths={setPolygonPaths}
-            setOpenStreetMapId={setOpenStreetMapId}
+            searchAddress={searchAddress}
+            setSearchAddress={setSearchAddress}
+            setProperties={setProperties}
           />
         </div>
 
         <div className='map-container basis-3/4'>
-          <MapComponent center={center} polygonPaths={polygonPaths}/>
+          <MapComponent center={center} polygonPaths={polygonPaths} properties={properties}/>
         </div>
       </div>
     </div>

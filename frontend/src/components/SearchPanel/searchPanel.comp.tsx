@@ -1,19 +1,35 @@
 import { useEffect, useRef, useState } from 'react';
 import polyline from '@mapbox/polyline';
-import { getPolygonPathsById, searchByCoordinates } from '../../requests/openStreetMap';
+import {
+  getPolygonPathsById,
+  searchByCoordinates
+} from '../../requests/openStreetMap';
+import { XCircleIcon, PlusCircleIcon } from '@heroicons/react/16/solid';
+import { DEFAULT_POSITION } from '../../const';
+import { Button, Card, Divider, Form, Input } from 'antd';
+import { v4 as uuid } from 'uuid';
+import { getGeoCodingByAddress } from '../../requests/geocoding';
 
 export const SearchPanelComponent = ({
   setCenter,
   setPolygonPaths,
+  polygonPaths,
+  searchAddress,
+  setSearchAddress,
+  setProperties
 }: {
   setCenter: ({ lat, lng }: { lat: number; lng: number }) => void;
   setPolygonPaths: (paths: string[]) => void;
-  setOpenStreetMapId: (id: string | null) => void;
+  polygonPaths: string[];
+  searchAddress: string;
+  setSearchAddress: (searchAddress: string) => void;
+  setProperties: (properties: { coordinates: [number, number]; address: string }[]) => void;
 }) => {
-  const [suburb, setSuburb] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
-  const [selectedCoordinates, setSelectedCoordinates] = useState<{ lat: number; lng: number } | null>(null);
 
+  const [propertyAddresses, setPropertyAddresses] = useState<
+    Record<string, {address: string, coordinates: [number, number]}>
+  >({});
 
   useEffect(() => {
     if (!window.google?.maps?.places) {
@@ -32,84 +48,169 @@ export const SearchPanelComponent = ({
     );
 
     // Add listener for place selection
-    autocomplete.addListener('place_changed', () => {
+    autocomplete.addListener('place_changed', async () => {
       const place = autocomplete.getPlace();
 
       if (place.geometry) {
         const location = place.geometry.location;
 
-        console.log('Place details:', place, place.geometry.location?.toJSON());
         if (!location) return;
 
         const coordinates = {
           lat: location.lat(),
           lng: location.lng()
-        }
+        };
 
-        if (place.geometry.viewport) {
-          const bounds = place.geometry.viewport;
-          const ne = bounds.getNorthEast();
-          const sw = bounds.getSouthWest();
+        const response = await searchByCoordinates(coordinates);
+        const osmId = response.osm_id;
+        const responsePolygon = await getPolygonPathsById(osmId);
 
-          const path = [
-            { lat: ne.lat(), lng: ne.lng() },
-            { lat: ne.lat(), lng: sw.lng() },
-            { lat: sw.lat(), lng: sw.lng() },
-            { lat: sw.lat(), lng: ne.lng() },
-          ];
-
-          const coordinatesArray = path.map(coord => [coord.lat, coord.lng]) as [number, number][];
-          setPolygonPaths([polyline.encode(coordinatesArray)]); // Set the polygon path based on the viewport
+        if (responsePolygon.geometry) {
+          const polygonCoordinates = responsePolygon.geometry.coordinates as [
+            number,
+            number
+          ][][];
+          const encodedPolygonCoordinates = polygonCoordinates.map((path) =>
+            path.map(([lng, lat]) => [lat, lng])
+          ) as [number, number][][];
+          setPolygonPaths(
+            encodedPolygonCoordinates.map((path) => polyline.encode(path))
+          );
         }
 
         setCenter(coordinates);
-        setSelectedCoordinates(coordinates);
       } else {
         alert('No details available for input: ' + place.name);
       }
     });
-  }, [window.google]);
+  }, [
+    window.google,
+    setCenter,
+    setPolygonPaths,
+    searchByCoordinates,
+    getPolygonPathsById
+  ]);
 
-  useEffect(() => {
-    if (!selectedCoordinates) return;
+  const resetAddress = () => {
+    setCenter(DEFAULT_POSITION);
+    setPolygonPaths([]);
+    setSearchAddress('');
+  };
 
-    const searchAddressByCoordinates = async (
-      coordinates: {
-        lat: any;
-        lng: any;
-      }
-    ): Promise<any> => {
-      const response = await searchByCoordinates(selectedCoordinates);
-      const osmId = response.osm_id;
-
-      const responsePolygon = await getPolygonPathsById(osmId);
-
-      console.log('responsePolygon', responsePolygon.geometry.coordinates);
-      if(responsePolygon.geometry) {
-        const polygonCoordinates = responsePolygon.geometry.coordinates as [number, number][][];
-        console.log('polygonCoordinates', polygonCoordinates);
-        // setPolygonPaths(polygonCoordinates[0].map(([lng, lat]) => [lat, lng]));
-      }
-      // setOpenStreetMapId(response.osm_id);
-    };
-
-    if(selectedCoordinates) {
-      console.log('selectedCoordinates', selectedCoordinates);
-      searchAddressByCoordinates(selectedCoordinates);
-    }
-
-  }, [selectedCoordinates])
+  const hasSearchResult = polygonPaths.length > 0;
 
   return (
     <>
       <h3>Search Suburb</h3>
-      <input
-        type='text'
-        value={suburb}
-        ref={inputRef}
-        onChange={(e) => setSuburb(e.target.value)}
-        placeholder='Enter suburb name'
-      />
+      <div className='flex items-center justify-center'>
+        <div>
+          <input
+            type='text'
+            value={searchAddress}
+            className='w-full'
+            ref={inputRef}
+            onChange={(e) => setSearchAddress(e.target.value)}
+            placeholder='Enter suburb name'
+          />
+        </div>
+
+        {hasSearchResult && (
+          <div className='pl-1 pb-3'>
+            <Button
+              color='danger'
+              variant='solid'
+              onClick={(e) => {
+                e.preventDefault();
+                resetAddress();
+              }}
+            >
+              <XCircleIcon className='h-5' />
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {hasSearchResult && (
+        <div>
+          <Divider>Text</Divider>
+          <Card title='Property Addresses'>
+            <div className='pb-6'>
+            <Button
+              onClick={() => {
+                setPropertyAddresses((prevState) => ({
+                  ...prevState,
+                  [uuid()]: {
+                    address: '',
+                    coordinates: [0, 0]
+                  }
+                }));
+              }}
+            >
+              <PlusCircleIcon className='h-5' /> Add Property
+            </Button>
+            </div>
+            <Form
+              onFinish={async (e) => {
+                setPropertyAddresses(
+                  Object.keys(e).reduce((acc, key) => {
+                    const address = e[key];
+                    return {
+                      ...acc,
+                      [key]: {
+                        address,
+                        coordinates: [0, 0]
+                      }
+                    };
+                  }, {})
+                );
+
+                const requests = Object.keys(e).map(async (key) => {
+                  const address = e[key] as string;
+
+                  const coordinates = await getGeoCodingByAddress(address);
+
+                  if (!coordinates) return;
+
+                  return {
+                    address,
+                    coordinates: [coordinates.geometry.location.lat, coordinates.geometry.location.lng] as [number, number]
+                  }
+                })
+
+                const properties = await Promise.all(requests);
+
+                console.log('properties', properties);
+
+                setProperties(properties.filter(Boolean) as { coordinates: [number, number]; address: string }[]);
+              }}
+            >
+              {Object.keys(propertyAddresses).map((key, index) => (
+                <div>
+                  <Form.Item
+                    label={`Property-${index + 1}`}
+                    name={key}
+                    rules={[
+                      { required: true, message: 'Please input your address!' }
+                    ]}
+                  >
+                    <div className='flex items-center justify-center'>
+                      <div>
+                        <Input />
+                      </div>
+                    </div>
+                  </Form.Item>
+                </div>
+              ))}
+
+              {Object.keys(propertyAddresses).length > 0 && (
+                <Button color='primary' variant='solid' htmlType='submit'>
+                  Submit
+                </Button>
+              )}
+            </Form>
+          </Card>
+        </div>
+      )}
     </>
   );
 };

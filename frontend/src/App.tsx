@@ -4,15 +4,13 @@ import { MapComponent } from './components/Map/map.comp';
 import { SearchPanelComponent } from './components/SearchPanel/searchPanel.comp';
 import { APIProvider } from '@vis.gl/react-google-maps';
 import { DEFAULT_POSITION } from './const';
+import { Property } from './models';
 
 function App() {
   const [center, setCenter] = useState<google.maps.LatLngLiteral>(DEFAULT_POSITION);
   const [polygonPaths, setPolygonPaths] = useState<string[]>([]);
   const [searchAddress, setSearchAddress] = useState<string>('');
-  const [properties, setProperties] = useState<{
-    coordinates: [number, number];
-    address: string;
-  }[]>([]);
+  const [properties, setProperties] = useState<Property[]>([]);
 
 
   return (
@@ -27,6 +25,7 @@ function App() {
             searchAddress={searchAddress}
             setSearchAddress={setSearchAddress}
             setProperties={setProperties}
+            properties={properties}
           />
         </div>
 

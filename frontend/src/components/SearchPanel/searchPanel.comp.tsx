@@ -6,9 +6,11 @@ import {
 } from '../../requests/openStreetMap';
 import { XCircleIcon, PlusCircleIcon } from '@heroicons/react/16/solid';
 import { DEFAULT_POSITION } from '../../const';
-import { Button, Card, Divider, Form, Input } from 'antd';
+import { Button, Card, Collapse, Divider, Flex, Form, Input } from 'antd';
 import { v4 as uuid } from 'uuid';
 import { getGeoCodingByAddress } from '../../requests/geocoding';
+import { searchByAddress } from '../../requests/propertyDetails';
+import { Property } from '../../models';
 
 export const SearchPanelComponent = ({
   setCenter,
@@ -16,20 +18,24 @@ export const SearchPanelComponent = ({
   polygonPaths,
   searchAddress,
   setSearchAddress,
-  setProperties
+  setProperties,
+  properties
 }: {
   setCenter: ({ lat, lng }: { lat: number; lng: number }) => void;
   setPolygonPaths: (paths: string[]) => void;
   polygonPaths: string[];
   searchAddress: string;
   setSearchAddress: (searchAddress: string) => void;
-  setProperties: (properties: { coordinates: [number, number]; address: string }[]) => void;
+  setProperties: (properties: Property[]) => void;
+  properties: Property[];
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const [propertyAddresses, setPropertyAddresses] = useState<
-    Record<string, {address: string, coordinates: [number, number]}>
+    Record<string, { address: string; coordinates: [number, number] }>
   >({});
+
+  const [selectedProperty, setSelectedProperty] = useState<Property>();
 
   useEffect(() => {
     if (!window.google?.maps?.places) {
@@ -91,6 +97,47 @@ export const SearchPanelComponent = ({
     getPolygonPathsById
   ]);
 
+  const PropertiesCollapse = ({ properties }: { properties: Property[] }) => {
+    return (
+      <Collapse
+        items={properties.map((property) => ({
+          key: property.address,
+          label: property.address,
+          children: selectedProperty && selectedProperty.details && (
+            <div>
+              <Flex justify="space-between">
+                <div>🛏️: {selectedProperty.details.beds} </div>
+                <div>🛁: {selectedProperty.details.baths}</div>
+                <div>🚘: {selectedProperty.details.baths}</div>
+              </Flex>
+            </div>
+          )
+        }))}
+        onChange={async (address) => {
+          if (address) {
+            const property = properties.find(
+              (property) => property.address === address[0]
+            );
+
+            if (!property) return;
+
+            const propertyDetails = await searchByAddress(
+              property!.detailedAddress
+            );
+
+            setSelectedProperty({
+              ...property,
+              details: propertyDetails
+            });
+
+            console.log('propertyDetails', propertyDetails);
+          }
+        }}
+        defaultActiveKey={selectedProperty?.address}
+      />
+    );
+  };
+
   const resetAddress = () => {
     setCenter(DEFAULT_POSITION);
     setPolygonPaths([]);
@@ -132,22 +179,21 @@ export const SearchPanelComponent = ({
 
       {hasSearchResult && (
         <div>
-          <Divider>Text</Divider>
           <Card title='Property Addresses'>
             <div className='pb-6'>
-            <Button
-              onClick={() => {
-                setPropertyAddresses((prevState) => ({
-                  ...prevState,
-                  [uuid()]: {
-                    address: '',
-                    coordinates: [0, 0]
-                  }
-                }));
-              }}
-            >
-              <PlusCircleIcon className='h-5' /> Add Property
-            </Button>
+              <Button
+                onClick={() => {
+                  setPropertyAddresses((prevState) => ({
+                    ...prevState,
+                    [uuid()]: {
+                      address: '',
+                      coordinates: [0, 0]
+                    }
+                  }));
+                }}
+              >
+                <PlusCircleIcon className='h-5' /> Add Property
+              </Button>
             </div>
             <Form
               onFinish={async (e) => {
@@ -168,20 +214,55 @@ export const SearchPanelComponent = ({
                   const address = e[key] as string;
 
                   const coordinates = await getGeoCodingByAddress(address);
+                  const addressComponents = coordinates.address_components;
+                  console.log('coordinates', coordinates);
 
                   if (!coordinates) return;
 
                   return {
                     address,
-                    coordinates: [coordinates.geometry.location.lat, coordinates.geometry.location.lng] as [number, number]
-                  }
-                })
+                    coordinates: [
+                      coordinates.geometry.location.lat,
+                      coordinates.geometry.location.lng
+                    ] as [number, number],
+                    detailedAddress: {
+                      unitNumber:
+                        addressComponents.length < 8
+                          ? ''
+                          : addressComponents[0].short_name,
+                      streetNumber:
+                        addressComponents.length < 8
+                          ? addressComponents[0].short_name
+                          : addressComponents[1].short_name,
+                      streetName:
+                        addressComponents.length < 8
+                          ? addressComponents[1].short_name.split(' ')[0]
+                          : addressComponents[2].short_name.split(' ')[0],
+                      streetType:
+                        addressComponents.length < 8
+                          ? addressComponents[1].short_name.split(' ')[1]
+                          : addressComponents[2].short_name.split(' ')[1],
+                      suburb:
+                        addressComponents.length < 8
+                          ? addressComponents[2].short_name
+                          : addressComponents[3].short_name,
+                      postcode:
+                        addressComponents.length < 8
+                          ? addressComponents[6].short_name
+                          : addressComponents[7].short_name
+                    }
+                  };
+                });
 
                 const properties = await Promise.all(requests);
 
-                console.log('properties', properties);
-
-                setProperties(properties.filter(Boolean) as { coordinates: [number, number]; address: string }[]);
+                setProperties(
+                  properties.filter(Boolean) as {
+                    coordinates: [number, number];
+                    address: string;
+                    detailedAddress: any;
+                  }[]
+                );
               }}
             >
               {Object.keys(propertyAddresses).map((key, index) => (
@@ -209,6 +290,13 @@ export const SearchPanelComponent = ({
               )}
             </Form>
           </Card>
+
+          {properties.length > 0 && (
+            <>
+              <Divider>Property Details</Divider>
+              <PropertiesCollapse properties={properties}></PropertiesCollapse>
+            </>
+          )}
         </div>
       )}
     </>

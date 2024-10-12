@@ -75,7 +75,6 @@ function usePolygon(props: PolygonProps) {
       geometryLibrary.encoding.decodePath(path)
     );
 
-    console.log('paths', paths);
     polygon.setPaths(paths);
   }, [polygon, encodedPaths, geometryLibrary]);
 

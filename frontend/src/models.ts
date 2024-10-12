@@ -1,3 +1,10 @@
+export type Suburb = {
+  name: string;
+  address: string;
+  coordinates: Coordinates;
+  polygonPaths: string[];
+}
+
 export type Property = {
   coordinates: [number, number];
   address: string;
@@ -16,6 +23,11 @@ export type Property = {
     carSpaces: number;
     landSizeUnit: string;
     guesstimate: any;
-    links: string[];
+    links: {rel: string, href: string}[];
   }
 };
+
+export type Coordinates = {
+  lat: number;
+  lng: number;
+}

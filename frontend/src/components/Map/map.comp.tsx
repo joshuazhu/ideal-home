@@ -1,31 +1,27 @@
 import { AdvancedMarker, InfoWindow, Map } from '@vis.gl/react-google-maps';
 import { Polygon } from './polygon';
 import { DEFAULT_POSITION } from '../../const';
+import { useGlobalContext } from '../Context/globalContext';
 
-export const MapComponent = ({
-  center,
-  polygonPaths,
-  properties
-}: {
-  center: google.maps.LatLngLiteral;
-  polygonPaths: string[];
-  properties: {
-    coordinates: [number, number];
-    address: string;
-  }[];
-}) => {
+export const MapComponent = () => {
+  const {
+    suburb,
+    mapCenter,
+    properties,
+  } = useGlobalContext()
+
   return (
     <Map
       defaultCenter={DEFAULT_POSITION}
-      center={center}
+      center={mapCenter}
       defaultZoom={14}
       mapId={process.env.REACT_APP_GOOGLE_MAP_ID}
       style={{ width: '100%', height: '100vh' }}
       gestureHandling={'greedy'}
       disableDefaultUI={true}
     >
-      <Polygon strokeWeight={1.5} encodedPaths={polygonPaths} />
-      <AdvancedMarker position={center || DEFAULT_POSITION} />
+      <Polygon strokeWeight={1.5} encodedPaths={suburb.polygonPaths} />
+      <AdvancedMarker position={mapCenter || DEFAULT_POSITION} />
       {properties.map(({ coordinates, address }, index) => (
         <InfoWindow
           key={index}

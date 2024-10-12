@@ -8,13 +8,13 @@ export type Suburb = {
 export type Property = {
   coordinates: [number, number];
   address: string;
-  detailedAddress: {
+  detailedAddress?: {
     streetNumber: string;
     streetName: string;
     streetType: string;
     suburb: string;
     unitNumber: string;
-    stateCode: string;
+    stateCode?: string;
     postCode: string;
   };
   details?: {

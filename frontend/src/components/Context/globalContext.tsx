@@ -16,6 +16,8 @@ export type GlobalContextType = {
   setMapCenter: (coordinates: Coordinates) => void;
   properties: Property[];
   setProperties: (properties: Property[]) => void;
+  selectedProperty?: Property;
+  setSelectedProperty: (property: Property) => void;
 };
 
 const GlobalContext = createContext<GlobalContextType>({
@@ -29,7 +31,9 @@ const GlobalContext = createContext<GlobalContextType>({
   mapCenter: DEFAULT_POSITION,
   setMapCenter: () => {},
   properties: [],
-  setProperties: () => {}
+  setProperties: () => {},
+  selectedProperty: undefined,
+  setSelectedProperty: () => {}
 });
 
 export const useProvideGlobalContext = () => {
@@ -37,6 +41,7 @@ export const useProvideGlobalContext = () => {
 
   const [mapCenter, setMapCenter] = useState<Coordinates>(DEFAULT_POSITION);
   const [properties, setProperties] = useState<Property[]>([]);
+  const [selectedProperty, setSelectedProperty] = useState<Property>();
 
   const globalContext = {
     suburb,
@@ -44,7 +49,9 @@ export const useProvideGlobalContext = () => {
     mapCenter,
     setMapCenter,
     properties,
-    setProperties
+    setProperties,
+    selectedProperty,
+    setSelectedProperty
   };
 
   return globalContext;
